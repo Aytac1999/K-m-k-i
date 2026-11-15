@@ -9,13 +9,13 @@
 <body>
 <div id="lock" style="display:none;position:fixed;inset:0;z-index:99;background:#fffbeb;padding:20px;font-size:13px">
   <h2 style="margin:0 0 8px">Gömrük Köməkçisi</h2>
-  <div id="lockMsg" style="margin-bottom:10px">İcazə lazımdır. Aşağıdakı kodunuzu icazə verən şəxsə göndərin.</div>
-  <div id="lockId" style="font-size:20px;font-weight:bold;letter-spacing:1px;margin:0 0 12px;padding:8px;background:#fff;border:1px solid #f59e0b;border-radius:6px;text-align:center"></div>
-  <div style="margin-bottom:6px;color:#78350f">Aktivləşdirmə kodunuz varsa, bura yazın:</div>
-  <input id="lockCode" type="text" placeholder="Aktivləşdirmə kodu" style="width:100%;box-sizing:border-box;padding:6px;margin-bottom:8px">
-  <button id="lockBtn" class="primary">Aktivləşdir</button>
+  <div id="lockMsg" style="margin-bottom:10px"></div>
+  <div id="lockId" style="font-size:22px;font-weight:bold;letter-spacing:2px;padding:8px;background:#fff;border:1px solid #f59e0b;border-radius:6px;text-align:center"></div>
 </div>
-<h1>Gömrük Köməkçisi <span id="myid" title="Sizin istifadəçi kodunuz (kopyalamaq üçün basın)" style="float:right;font-size:11px;font-weight:normal;cursor:pointer;background:rgba(255,255,255,.25);padding:2px 6px;border-radius:4px"></span></h1>
+<h1>Gömrük Köməkçisi <span id="myid" title="Sizin istifadəçi kodunuz" style="float:right;font-size:11px;font-weight:normal;text-align:right;line-height:1.3"></span></h1>
+<div id="icazeMsg" style="display:none;margin:4px 0;padding:6px 8px;border-radius:6px;background:#fef3c7;border:1px solid #f59e0b;font-size:12px"></div>
+<button id="admBtn" style="display:none;margin:2px 0">İcazələr</button>
+<section id="adm" style="display:none;font-size:12px"></section>
 <div id="upd" style="display:none;margin:4px 0;padding:6px 8px;border-radius:6px;background:#fef3c7;border:1px solid #f59e0b;font-size:12px"></div>
 
 <section id="folderBox">

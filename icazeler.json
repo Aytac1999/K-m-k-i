@@ -1,10 +1,5 @@
 {
-  "istifadeciler": [
-    {
-      "ad": "Aytac (admin)",
-      "hash": "4a09d39cb4388529dc53a7c4dd5d47fa3ce57f57f17b78be75beb7f4ab748c3d",
-      "bitme": null,
-      "admin": true
-    }
-  ]
+  "hamisina_ac": true,
+  "admin": [],
+  "istifadeciler": {}
 }

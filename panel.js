@@ -446,58 +446,79 @@ async function selfUpdate(REPO, btn, box) {
   }
 }
 
-// ---------- icazə yoxlaması (GitHub-dakı icazeler.json) ----------
+// ---------- icazə yoxlaması (GitHub-dakı icazeler.json; TTA Kömək­çisi ilə eyni qayda) ----------
 let licensed = false;
 const LIC_REPO = "Aytac1999/K-m-k-i";
-const sha256 = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const isoG = (d) => d.toISOString().slice(0, 10);
 async function myId() {
   let { devid } = await chrome.storage.local.get("devid");
-  if (!devid) {
-    const b = crypto.getRandomValues(new Uint8Array(5));
-    const s = [...b].map((x) => x.toString(16).padStart(2, "0")).join("").toUpperCase();
-    devid = s.slice(0, 5) + "-" + s.slice(5);
+  if (!devid || !/^[A-Z2-9]{8}$/.test(devid)) {
+    const b = crypto.getRandomValues(new Uint8Array(8));
+    devid = [...b].map((x) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[x % 32]).join("");
     await chrome.storage.local.set({ devid });
   }
   return devid;
 }
-async function checkLicense(code) {
-  const r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
-  if (!r.ok) throw new Error("net");
-  const j = await r.json();
-  const h = await sha256(code.trim());
-  const u = (j.istifadeciler || []).find((x) => x.hash === h);
-  if (!u) return { ok: false, why: "Kod tapılmadı və ya icazə verilməyib." };
-  if (u.bitme && new Date(u.bitme + "T23:59:59") < new Date()) return { ok: false, why: "İcazənin müddəti bitib (" + u.bitme + ")." };
-  return { ok: true, ad: u.ad, bitme: u.bitme || null };
+function qerar(j, kod) {
+  const e = (j.istifadeciler || {})[kod];
+  const bu = isoG(new Date());
+  if (e && e.blok) return { ok: false, sebeb: "blok" };
+  if (e) return e.bitir && bu > e.bitir ? { ok: false, sebeb: "bitib", bitir: e.bitir } : { ok: true, bitir: e.bitir || null };
+  if (j.hamisina_ac) return { ok: true, bitir: null };
+  return { ok: false, sebeb: "yox" };
 }
 (async () => {
-  const lock = $("lock"), msg = $("lockMsg");
-  const id = await myId();
-  $("myid").textContent = id; $("lockId").textContent = id;
-  $("myid").onclick = () => { navigator.clipboard.writeText(id).catch(() => {}); $("myid").textContent = "kopyalandı"; setTimeout(() => ($("myid").textContent = id), 1200); };
-  const show = (t) => { if (t) msg.textContent = t; lock.style.display = "block"; licensed = false; $("start").disabled = true; };
-  const ok = () => { lock.style.display = "none"; licensed = true; $("start").disabled = false; };
-  const { lic } = await chrome.storage.local.get("lic");
-  const codes = [id, lic && lic.code].filter(Boolean);
-  let lastWhy = "", net = true;
-  for (const c of codes) {
-    try {
-      const r = await checkLicense(c);
-      if (r.ok) { await chrome.storage.local.set({ lic: { code: c, okAt: Date.now() } }); return ok(); }
-      lastWhy = r.why;
-    } catch (_) { net = false; }
-  }
-  if (!net) {
-    if (lic && lic.okAt && Date.now() - lic.okAt < 3 * 864e5) return ok();
-    show("İcazəni yoxlamaq üçün internet lazımdır.");
-  } else show(lastWhy && /müddət/.test(lastWhy) ? lastWhy : "İcazə lazımdır. Aşağıdakı kodunuzu icazə verən şəxsə göndərin.");
-  $("lockBtn").onclick = async () => {
-    const code = $("lockCode").value.trim(); if (!code) return;
-    try {
-      const r = await checkLicense(code);
-      if (!r.ok) return show(r.why);
-      await chrome.storage.local.set({ lic: { code, okAt: Date.now() } });
-      ok();
-    } catch (_) { show("İnternetə qoşulub yenidən yoxlayın."); }
+  const ver = chrome.runtime.getManifest().version;
+  const kod = await myId();
+  const head = (extra) => { $("myid").innerHTML = `v${ver}<br>kod ${kod}${extra ? " · " + extra : ""}`; };
+  head();
+  const lock = (be, text) => {
+    licensed = !be; $("start").disabled = be;
+    $("lock").style.display = be ? "block" : "none";
+    $("lockMsg").textContent = be ? text : ""; $("lockId").textContent = be ? kod : "";
+    const n = $("icazeMsg"); n.style.display = !be && text ? "block" : "none"; n.textContent = !be && text ? text : "";
   };
+  const apply = (q) => {
+    if (q.ok) {
+      const qalan = q.bitir ? Math.ceil((new Date(q.bitir + "T23:59:59") - Date.now()) / 864e5) : null;
+      head(q.bitir ? "bitir: " + q.bitir : "");
+      lock(false, qalan != null && qalan <= 7 ? `İcazənin bitməsinə ${qalan} gün qalıb (${q.bitir}).` : "");
+    } else lock(true, q.sebeb === "bitib" ? `İcazənin müddəti bitib (${q.bitir}). Yeniləmək üçün aşağıdakı kodu göndərin:`
+      : q.sebeb === "blok" ? "İcazə ləğv edilib. Kodunuz:"
+      : "İcazə gözlənilir. İstifadə üçün bu kodu proqramı verən şəxsə göndərin:");
+  };
+  const { kesh } = await chrome.storage.local.get("kesh");
+  if (kesh && kesh.kod === kod && kesh.q) {
+    const q = kesh.q;
+    apply(!q.ok || !q.bitir || isoG(new Date()) <= q.bitir ? q : { ok: false, sebeb: "bitib", bitir: q.bitir });
+  } else lock(true, "İcazə yoxlanılır …");
+  for (let c = 0; c < 3; c++) {
+    try {
+      const r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
+      if (r.status === 404) return apply({ ok: true, bitir: null }); // fayl yoxdur: məhdudiyyət yoxdur
+      if (r.ok) {
+        const j = await r.json();
+        const q = qerar(j, kod);
+        await chrome.storage.local.set({ kesh: { kod, q } });
+        apply(q);
+        if ((j.admin || []).includes(kod)) adminPanel(j);
+        return;
+      }
+    } catch (_) {}
+    await sleep(2500);
+  }
+  if (!kesh) lock(true, "İcazə yoxlanıla bilmədi (internet). Bir az sonra yenidən açın. Kodunuz:");
 })();
+async function adminPanel(j) {
+  const { adlar = {} } = await chrome.storage.local.get("adlar");
+  const bu = isoG(new Date());
+  const rows = Object.entries(j.istifadeciler || {}).map(([k, e]) => {
+    const st = e.blok ? "bloklanıb" : e.bitir && bu > e.bitir ? "müddət bitib" : "aktiv";
+    return `<tr><td><b>${esc(k)}</b></td><td><input data-ad="${esc(k)}" value="${esc(adlar[k] || "")}" placeholder="ad (yalnız burada)" style="width:90px"></td><td>${esc(e.bitir || "limitsiz")}</td><td>${st}</td></tr>`;
+  }).join("");
+  $("adm").innerHTML = `<p>Hamıya açıq: <b>${j.hamisina_ac ? "bəli" : "xeyr"}</b>. Yeni kod əlavə etmək üçün kodu Claude-a yazın.</p><table class="cedvel" style="width:100%"><tr><th>Kod</th><th>Ad</th><th>Bitmə</th><th>Vəziyyət</th></tr>${rows || '<tr><td colspan="4">Hələ kod yoxdur.</td></tr>'}</table>`;
+  $("adm").querySelectorAll("[data-ad]").forEach((i) => i.addEventListener("change", async () => { adlar[i.dataset.ad] = i.value; await chrome.storage.local.set({ adlar }); }));
+  $("admBtn").style.display = "inline-block";
+  $("admBtn").onclick = () => { $("adm").style.display = $("adm").style.display === "none" ? "block" : "none"; };
+}
