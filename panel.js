@@ -450,6 +450,16 @@ async function selfUpdate(REPO, btn, box) {
 let licensed = false;
 const LIC_REPO = "Aytac1999/K-m-k-i";
 const sha256 = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function myId() {
+  let { devid } = await chrome.storage.local.get("devid");
+  if (!devid) {
+    const b = crypto.getRandomValues(new Uint8Array(5));
+    const s = [...b].map((x) => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+    devid = s.slice(0, 5) + "-" + s.slice(5);
+    await chrome.storage.local.set({ devid });
+  }
+  return devid;
+}
 async function checkLicense(code) {
   const r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
   if (!r.ok) throw new Error("net");
@@ -462,20 +472,25 @@ async function checkLicense(code) {
 }
 (async () => {
   const lock = $("lock"), msg = $("lockMsg");
+  const id = await myId();
+  $("myid").textContent = id; $("lockId").textContent = id;
+  $("myid").onclick = () => { navigator.clipboard.writeText(id).catch(() => {}); $("myid").textContent = "kopyalandı"; setTimeout(() => ($("myid").textContent = id), 1200); };
   const show = (t) => { if (t) msg.textContent = t; lock.style.display = "block"; licensed = false; $("start").disabled = true; };
   const ok = () => { lock.style.display = "none"; licensed = true; $("start").disabled = false; };
   const { lic } = await chrome.storage.local.get("lic");
-  if (lic && lic.code) {
+  const codes = [id, lic && lic.code].filter(Boolean);
+  let lastWhy = "", net = true;
+  for (const c of codes) {
     try {
-      const r = await checkLicense(lic.code);
-      if (r.ok) { await chrome.storage.local.set({ lic: { code: lic.code, okAt: Date.now() } }); return ok(); }
-      return show(r.why);
-    } catch (_) { // internet yoxdur: son uğurlu yoxlamadan 3 gün ərzində icazə verilir
-      if (lic.okAt && Date.now() - lic.okAt < 3 * 864e5) return ok();
-      return show("İcazəni yoxlamaq üçün internet lazımdır.");
-    }
+      const r = await checkLicense(c);
+      if (r.ok) { await chrome.storage.local.set({ lic: { code: c, okAt: Date.now() } }); return ok(); }
+      lastWhy = r.why;
+    } catch (_) { net = false; }
   }
-  show();
+  if (!net) {
+    if (lic && lic.okAt && Date.now() - lic.okAt < 3 * 864e5) return ok();
+    show("İcazəni yoxlamaq üçün internet lazımdır.");
+  } else show(lastWhy && /müddət/.test(lastWhy) ? lastWhy : "İcazə lazımdır. Aşağıdakı kodunuzu icazə verən şəxsə göndərin.");
   $("lockBtn").onclick = async () => {
     const code = $("lockCode").value.trim(); if (!code) return;
     try {
