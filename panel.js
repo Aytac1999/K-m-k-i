@@ -188,6 +188,7 @@ function sniffExt(bytes, hint = "") {
 
 // ---------- əsas axın ----------
 async function run() {
+  if (!licensed) return alert("İcazə yoxdur: aktivləşdirmə kodu lazımdır.");
   if (!(await ensureFolderAccess())) return alert("Seçilmiş qovluğa yazmaq icazəsi verilmədi.");
   const cfg = readCfg();
   if (!cfg.from || !cfg.to) return alert("Tarixləri gün.ay.il formatında yazın (məs. 01.01.2025).");
@@ -444,3 +445,44 @@ async function selfUpdate(REPO, btn, box) {
     const s = document.createElement("div"); s.textContent = "Yeniləmə alınmadı: " + e.message; s.style.color = "#b91c1c"; box.append(s);
   }
 }
+
+// ---------- icazə yoxlaması (GitHub-dakı icazeler.json) ----------
+let licensed = false;
+const LIC_REPO = "Aytac1999/K-m-k-i";
+const sha256 = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function checkLicense(code) {
+  const r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error("net");
+  const j = await r.json();
+  const h = await sha256(code.trim());
+  const u = (j.istifadeciler || []).find((x) => x.hash === h);
+  if (!u) return { ok: false, why: "Kod tapılmadı və ya icazə verilməyib." };
+  if (u.bitme && new Date(u.bitme + "T23:59:59") < new Date()) return { ok: false, why: "İcazənin müddəti bitib (" + u.bitme + ")." };
+  return { ok: true, ad: u.ad, bitme: u.bitme || null };
+}
+(async () => {
+  const lock = $("lock"), msg = $("lockMsg");
+  const show = (t) => { if (t) msg.textContent = t; lock.style.display = "block"; licensed = false; $("start").disabled = true; };
+  const ok = () => { lock.style.display = "none"; licensed = true; $("start").disabled = false; };
+  const { lic } = await chrome.storage.local.get("lic");
+  if (lic && lic.code) {
+    try {
+      const r = await checkLicense(lic.code);
+      if (r.ok) { await chrome.storage.local.set({ lic: { code: lic.code, okAt: Date.now() } }); return ok(); }
+      return show(r.why);
+    } catch (_) { // internet yoxdur: son uğurlu yoxlamadan 3 gün ərzində icazə verilir
+      if (lic.okAt && Date.now() - lic.okAt < 3 * 864e5) return ok();
+      return show("İcazəni yoxlamaq üçün internet lazımdır.");
+    }
+  }
+  show();
+  $("lockBtn").onclick = async () => {
+    const code = $("lockCode").value.trim(); if (!code) return;
+    try {
+      const r = await checkLicense(code);
+      if (!r.ok) return show(r.why);
+      await chrome.storage.local.set({ lic: { code, okAt: Date.now() } });
+      ok();
+    } catch (_) { show("İnternetə qoşulub yenidən yoxlayın."); }
+  };
+})();

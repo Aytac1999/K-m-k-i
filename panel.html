@@ -7,6 +7,12 @@
 <link rel="stylesheet" href="panel.css">
 </head>
 <body>
+<div id="lock" style="display:none;position:fixed;inset:0;z-index:99;background:#fffbeb;padding:20px;font-size:13px">
+  <h2 style="margin:0 0 8px">Gömrük Köməkçisi</h2>
+  <div id="lockMsg" style="margin-bottom:10px">İstifadə üçün aktivləşdirmə kodu lazımdır.</div>
+  <input id="lockCode" type="text" placeholder="Aktivləşdirmə kodu" style="width:100%;box-sizing:border-box;padding:6px;margin-bottom:8px">
+  <button id="lockBtn" class="primary">Aktivləşdir</button>
+</div>
 <h1>Gömrük Köməkçisi</h1>
 <div id="upd" style="display:none;margin:4px 0;padding:6px 8px;border-radius:6px;background:#fef3c7;border:1px solid #f59e0b;font-size:12px"></div>
 
