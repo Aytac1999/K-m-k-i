@@ -55,7 +55,7 @@ export function parseDeclaration(files, gbHint = "") {
   // qr.24 (əqdin xarakteri): çatdırılma şərtləri sətrinin sonundakı 3 rəqəmli kod (100, 110, 120, 140 ...)
   {
     const il = lines0.find((l) => /(?<!\d)\d{2}[ \t]+(?:EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAT|DAP|DDP)[ \t]+/.test(l)) || "";
-    const q24 = /(?<!\d)(\d{3})[ \t]+\d{2}\s*$/.exec(il);
+    const q24 = /(?<!\d)(\d{3})(?:[ \t]+\d{2})?\s*$/.exec(il);
     H.qr24 = q24 ? q24[1] : "";
   }
   H.valyuta_kod = m ? m[1] : "";
