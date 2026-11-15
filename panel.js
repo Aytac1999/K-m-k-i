@@ -392,10 +392,55 @@ $("diag").onclick = async () => {
     const box = $("upd");
     box.innerHTML = "";
     box.append(`Yeni versiya var: ${v.version} (sizdə ${cur}). `);
-    const a = document.createElement("a");
-    a.href = `https://github.com/${REPO}/archive/refs/heads/main.zip`; a.target = "_blank"; a.textContent = "Yüklə";
-    box.append(a);
+    const b = document.createElement("button");
+    b.textContent = "İndi yenilə"; b.className = "primary";
+    b.onclick = () => selfUpdate(REPO, b, box);
+    box.append(b);
     if (v.note) box.append(" — " + v.note);
     box.style.display = "block";
   } catch (_) {}
 })();
+
+// Extension qovluğunu GitHub-dakı son versiya ilə əvəz edir (qovluq bir dəfə seçilir) və extensionu yenidən yükləyir
+async function selfUpdate(REPO, btn, box) {
+  const msg = (t) => { btn.disabled = true; btn.textContent = t; };
+  try {
+    let h = null;
+    try { h = (await getFile("extHandle")) || null; } catch (_) {}
+    if (h) {
+      let pm = await h.queryPermission({ mode: "readwrite" });
+      if (pm !== "granted") pm = await h.requestPermission({ mode: "readwrite" });
+      if (pm !== "granted") h = null;
+    }
+    if (!h) {
+      alert("Extensionun qovluğunu seçin (içində manifest.json olan qovluq). Bu yalnız bir dəfə lazımdır.");
+      h = await window.showDirectoryPicker({ mode: "readwrite", id: "gomruk-ext" });
+      try { await h.getFileHandle("manifest.json"); } catch (_) { throw new Error("Seçilən qovluqda manifest.json yoxdur"); }
+      await putFile("extHandle", h);
+    }
+    msg("Yüklənir…");
+    const r = await fetch(`https://codeload.github.com/${REPO}/zip/refs/heads/main`, { cache: "no-store" });
+    if (!r.ok) throw new Error("GitHub-dan yükləmə alınmadı (" + r.status + ")");
+    const z = await JSZip.loadAsync(await r.arrayBuffer());
+    const names = Object.keys(z.files).filter((n) => !z.files[n].dir);
+    const top = names[0].split("/")[0] + "/";
+    msg("Yazılır…");
+    const put = async (rel, data) => {
+      const parts = rel.split("/"); let d = h;
+      for (const s of parts.slice(0, -1)) d = await d.getDirectoryHandle(s, { create: true });
+      const w = await (await d.getFileHandle(parts[parts.length - 1], { create: true })).createWritable();
+      await w.write(data); await w.close();
+    };
+    for (const n of names) {
+      const rel = n.slice(top.length);
+      if (!rel || rel === "manifest.json" || rel.startsWith(".git")) continue;
+      await put(rel, await z.files[n].async("uint8array"));
+    }
+    await put("manifest.json", await z.files[top + "manifest.json"].async("uint8array")); // ən axırda
+    msg("Yeniləndi, yenidən başlayır…");
+    setTimeout(() => chrome.runtime.reload(), 500);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "İndi yenilə";
+    const s = document.createElement("div"); s.textContent = "Yeniləmə alınmadı: " + e.message; s.style.color = "#b91c1c"; box.append(s);
+  }
+}

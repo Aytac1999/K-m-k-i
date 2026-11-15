@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gömrük Köməkçisi",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "e.customs.gov.az saytında GB-ləri və müşayiət sənədlərini yükləyir, PDF-ləri birləşdirir, məlumatları Excel-ə çıxarır.",
   "permissions": [
     "downloads",
@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "*://*.customs.gov.az/*",
-    "https://raw.githubusercontent.com/*"
+    "https://raw.githubusercontent.com/*",
+    "https://codeload.github.com/*"
   ],
   "background": {
     "service_worker": "background.js",
