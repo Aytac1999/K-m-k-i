@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gömrük Köməkçisi</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<h1>Gömrük Köməkçisi</h1>
+<div id="upd" style="display:none;margin:4px 0;padding:6px 8px;border-radius:6px;background:#fef3c7;border:1px solid #f59e0b;font-size:12px"></div>
+
+<section id="folderBox">
+  <div class="row"><button id="pick" class="primary">Qovluq seç…</button></div>
+  <div id="folderName" class="mute">Seçilmiş qovluq: yoxdur</div>
+</section>
+
+<section>
+  <h2>Tarix aralığı (buraxılış tarixi)</h2>
+  <div class="row"><label>-dən <input type="text" id="from" placeholder="gg.aa.iiii" maxlength="10" inputmode="numeric" size="10"></label><label>-dək <input type="text" id="to" placeholder="gg.aa.iiii" maxlength="10" inputmode="numeric" size="10"></label></div>
+</section>
+
+<section>
+  <h2>Bəyannamə növü</h2>
+  <div class="inline">
+    <label class="chk"><input type="checkbox" id="k_tam" checked> Tam GB (01 İdxal 40)</label>
+    <label class="chk"><input type="checkbox" id="k_qisa" checked> Qısa (11 İdxal 00)</label>
+  </div>
+</section>
+
+<section>
+  <h2>Nə yüklənsin</h2>
+  <div class="inline">
+    <label class="chk"><input type="checkbox" id="o_adoc" checked> .adoc faylı</label>
+    <label class="chk"><input type="checkbox" id="o_merged" checked> Tək PDF</label>
+    <label class="chk"><input type="checkbox" id="o_excel" checked> Excel</label>
+  </div>
+  <hr>
+  <div class="inline">
+    <label class="chk"><input type="checkbox" id="o_invoys"> İnvoys</label>
+    <label class="chk"><input type="checkbox" id="o_cmr"> CMR</label>
+    <label class="chk"><input type="checkbox" id="o_diger"> Digər sənədlər</label>
+    <label class="chk"><input type="checkbox" id="o_musayiet" checked> Müşayiət sənədləri</label>
+  </div>
+  <input type="hidden" id="folder" value="Gomruk">
+</section>
+
+<div class="row">
+  <button id="start" class="primary">Başla</button>
+  <button id="stop" disabled>Dayandır</button>
+</div>
+<div class="row small">
+  <button id="check">Saytı yoxla</button>
+  <button id="diag">Diaqnostika</button>
+</div>
+
+<progress id="bar" value="0" max="1" hidden></progress>
+<div id="status"></div>
+<pre id="log"></pre>
+
+<script src="lib/jszip.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script type="module" src="panel.js"></script>
+</body>
+</html>
