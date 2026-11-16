@@ -46,6 +46,7 @@
   <hr>
   <div class="inline">
     <label class="chk"><input type="checkbox" id="o_invoys"> İnvoys</label>
+    <label class="chk"><input type="checkbox" id="o_invexcel"> İnvoysları Excel-ə çevir</label>
     <label class="chk"><input type="checkbox" id="o_cmr"> CMR</label>
     <label class="chk"><input type="checkbox" id="o_diger"> Digər sənədlər</label>
     <label class="chk"><input type="checkbox" id="o_musayiet" checked> Müşayiət sənədləri</label>
@@ -66,13 +67,6 @@
 <div id="status"></div>
 <pre id="log"></pre>
 
-<section id="invBox">
-  <h3 style="margin:0 0 4px;font-size:13px">Excel İnvoys</h3>
-  <div class="mute" style="font-size:11px;margin-bottom:4px">Skan edilmiş invoys PDF-lərini seçin: mal adı, miqdar, qiymət, cəm, invoys № və tarixi Excel-ə çıxarılır.</div>
-  <input type="file" id="inv_files" accept=".pdf" multiple style="width:100%;font-size:11px">
-  <button id="inv_go" class="primary" style="margin-top:4px">Excel-ə çevir</button>
-  <div id="inv_log" class="mute" style="font-size:11px;margin-top:4px;white-space:pre-wrap"></div>
-</section>
 <script src="lib/ocr/tesseract.min.js"></script>
 <script src="lib/jszip.min.js"></script>
 <script src="lib/pdf-lib.min.js"></script>
