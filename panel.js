@@ -278,7 +278,7 @@ async function run() {
 
     // fayl adı: şirkət (idxalatçı) + GB nömrəsi + portaldakı əməliyyat tarixi
     const comp = {};
-    const baseName = (r) => [comp[r.gb], r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
+    const baseName = (r) => [String(comp[r.gb] || "").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim(), r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {
       if (stopFlag) break;
@@ -291,7 +291,7 @@ async function run() {
         const files = [];
         for (const p of parts) files.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
         let parsed = null;
-        try { parsed = parseDeclaration(files, r.gb); comp[r.gb] = parsed.H.alan || ""; } catch (e) { if (cfg.o_excel) throw e; }
+        try { parsed = parseDeclaration(files, r.gb); comp[r.gb] = parsed.H.gonderen || ""; } catch (e) { if (cfg.o_excel) throw e; }
         const base = baseName(r);
         if (cfg.o_adoc) await save(f.bytes, `${base}.adoc`);
         if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${base}.pdf`, "application/pdf"); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
@@ -317,7 +317,7 @@ async function run() {
           try {
             const a = await getFile2("fetchSignIcon", { gb: r.gb }, "clickSignIcon", { gb: r.gb }, `${r.gb}`);
             const fl = []; for (const p of await readAdoc(JSZip, a.bytes)) fl.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
-            comp[r.gb] = parseDeclaration(fl, r.gb).H.alan || "";
+            comp[r.gb] = parseDeclaration(fl, r.gb).H.gonderen || "";
           } catch (e) { comp[r.gb] = ""; log(`${r.gb}: şirkət adı oxunmadı (${e.message})`); }
           await ensureRow(r.gb, true);
         }
