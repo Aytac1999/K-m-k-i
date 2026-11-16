@@ -276,6 +276,9 @@ async function run() {
     const total = rows.length * ((needAdoc ? 1 : 0) + (extras.length ? 1 : 0));
     let done = 0; $("bar").hidden = false; $("bar").max = total; $("bar").value = 0;
 
+    // fayl adı: şirkət (idxalatçı) + GB nömrəsi + portaldakı əməliyyat tarixi
+    const comp = {};
+    const baseName = (r) => [comp[r.gb], r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {
       if (stopFlag) break;
@@ -285,13 +288,14 @@ async function run() {
         await ensureRow(r.gb);
         const f = await getFile2("fetchSignIcon", { gb: r.gb }, "clickSignIcon", { gb: r.gb }, `${iso}_${r.gb}`);
         const parts = await readAdoc(JSZip, f.bytes);
-        if (cfg.o_adoc) await save(f.bytes, `${iso}_${r.gb}.adoc`);
-        if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${iso}_${r.gb}.pdf`, "application/pdf"); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
-        if (cfg.o_excel) {
-          const files = [];
-          for (const p of parts) files.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
-          results.push(parseDeclaration(files, r.gb));
-        }
+        const files = [];
+        for (const p of parts) files.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
+        let parsed = null;
+        try { parsed = parseDeclaration(files, r.gb); comp[r.gb] = parsed.H.alan || ""; } catch (e) { if (cfg.o_excel) throw e; }
+        const base = baseName(r);
+        if (cfg.o_adoc) await save(f.bytes, `${base}.adoc`);
+        if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${base}.pdf`, "application/pdf"); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
+        if (cfg.o_excel && parsed) results.push(parsed);
       } catch (e) { log(`XƏTA ${r.gb}: ${e.message}`); }
     }
 
@@ -309,6 +313,14 @@ async function run() {
       status(`Müşayiət: ${r.gb} (${++done}/${total})`); $("bar").value = done;
       try {
         await ensureRow(r.gb, true);
+        if (comp[r.gb] === undefined) {
+          try {
+            const a = await getFile2("fetchSignIcon", { gb: r.gb }, "clickSignIcon", { gb: r.gb }, `${r.gb}`);
+            const fl = []; for (const p of await readAdoc(JSZip, a.bytes)) fl.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
+            comp[r.gb] = parseDeclaration(fl, r.gb).H.alan || "";
+          } catch (e) { comp[r.gb] = ""; log(`${r.gb}: şirkət adı oxunmadı (${e.message})`); }
+          await ensureRow(r.gb, true);
+        }
         await drive("openGb", { gb: r.gb });
         await waitPage((x) => x.hasStep1);
         const labels = { invoys: "invoys", cmr: "CMR", diger: "digər sənədlər", musayiet: "əlavə sənədlər" };
@@ -319,7 +331,7 @@ async function run() {
             try {
               const f = await getFile2("fetchStep1", { label: ex, n: bt.n, mode }, "clickStep1", { label: ex, n: bt.n, mode }, `${r.gb} ${labels[ex]} ${bt.n}`);
               const ext = sniffExt(f.bytes, f.name || f.disp);
-              await save(f.bytes, `${r.gb} ${labels[ex]} ${bt.n}${ext}`);
+              await save(f.bytes, `${baseName(r)} ${labels[ex]} ${bt.n}${ext}`);
               log(`${r.gb}: ${labels[ex]} ${bt.n} yükləndi`);
             } catch (e) { log(`XƏTA ${r.gb} ${labels[ex]} ${bt.n}: ${e.message}`); }
           }
