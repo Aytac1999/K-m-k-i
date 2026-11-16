@@ -5,14 +5,12 @@ import { buildSheets } from "./src/report.js";
 import { buildXlsx } from "./src/xlsx.js";
 import { readAdoc, mergePdfs, isoDate, cleanName } from "./src/adoc.js";
 import { getFile, putFile, delFile } from "./src/idb.js";
-import { readInvoice } from "./src/invocr.js";
-import { S as XS } from "./src/xlsx.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("lib/pdf.worker.min.mjs");
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_invexcel", "o_cmr", "o_diger", "o_musayiet", "folder"];
+const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_cmr", "o_diger", "o_musayiet", "folder"];
 let stopFlag = false;
 
 // ---------- ayarlar ----------
@@ -196,7 +194,7 @@ async function run() {
   if (!cfg.from || !cfg.to) return alert("Tarixləri gün.ay.il formatında yazın (məs. 01.01.2025).");
   if (!cfg.k_tam && !cfg.k_qisa) return alert("Ən azı bir bəyannamə növü seçin.");
   const needAdoc = cfg.o_adoc || cfg.o_merged || cfg.o_excel;
-  const extras = [(cfg.o_invoys || cfg.o_invexcel) && "invoys", cfg.o_cmr && "cmr", cfg.o_diger && "diger", cfg.o_musayiet && "musayiet"].filter(Boolean);
+  const extras = [cfg.o_invoys && "invoys", cfg.o_cmr && "cmr", cfg.o_diger && "diger", cfg.o_musayiet && "musayiet"].filter(Boolean);
   if (!needAdoc && !extras.length) return alert("Nə yüklənəcəyini seçin.");
   stopFlag = false; $("start").disabled = true; $("stop").disabled = false; $("log").textContent = "";
   if (cfg.from > cfg.to) return alert("Başlanğıc tarixi sonuncudan böyükdür.");
@@ -306,7 +304,6 @@ async function run() {
     }
 
     // 3) Müşayiət sənədləri (hər GB açılır; hər dəfə siyahı sıfırlanır)
-    const invQueue = [];
     if (extras.length) for (const r of rows) {
       if (stopFlag) break;
       status(`Müşayiət: ${r.gb} (${++done}/${total})`); $("bar").value = done;
@@ -322,8 +319,8 @@ async function run() {
             try {
               const f = await getFile2("fetchStep1", { label: ex, n: bt.n, mode }, "clickStep1", { label: ex, n: bt.n, mode }, `${r.gb} ${labels[ex]} ${bt.n}`);
               const ext = sniffExt(f.bytes, f.name || f.disp);
-              if (ex !== "invoys" || cfg.o_invoys) { await save(f.bytes, `${r.gb} ${labels[ex]} ${bt.n}${ext}`); log(`${r.gb}: ${labels[ex]} ${bt.n} yükləndi`); }
-              if (ex === "invoys" && cfg.o_invexcel) { if (ext === ".pdf") invQueue.push({ gb: r.gb, n: bt.n, bytes: f.bytes }); else log(`${r.gb}: invoys ${bt.n} PDF deyil, Excel-ə çevrilmədi`); }
+              await save(f.bytes, `${r.gb} ${labels[ex]} ${bt.n}${ext}`);
+              log(`${r.gb}: ${labels[ex]} ${bt.n} yükləndi`);
             } catch (e) { log(`XƏTA ${r.gb} ${labels[ex]} ${bt.n}: ${e.message}`); }
           }
         };
@@ -368,10 +365,6 @@ async function run() {
         await gotoList();
       } catch (e) { log(`XƏTA ${r.gb}: ${e.message}`); try { await gotoList(); } catch (_) {} }
     }
-    if (invQueue.length) {
-      status("İnvoyslar oxunur (OCR)…");
-      try { await invoiceExcel(invQueue, cfg, (t) => status(t)); } catch (e) { log("XƏTA Excel İnvoys: " + e.message); }
-    } else if (cfg.o_invexcel) log("Excel İnvoys: çevriləcək invoys tapılmadı.");
     status(stopFlag ? "Dayandırıldı." : "Bitdi.");
   } catch (e) { status("Xəta"); log(e.message); }
   $("start").disabled = false; $("stop").disabled = true;
@@ -528,36 +521,4 @@ async function adminPanel(j) {
   $("adm").querySelectorAll("[data-ad]").forEach((i) => i.addEventListener("change", async () => { adlar[i.dataset.ad] = i.value; await chrome.storage.local.set({ adlar }); }));
   $("admBtn").style.display = "inline-block";
   $("admBtn").onclick = () => { $("adm").style.display = $("adm").style.display === "none" ? "block" : "none"; };
-}
-
-// ---------- Excel İnvoys (skan edilmiş invoys PDF-lərindən OCR ilə) ----------
-async function invoiceExcel(items, cfg, progress) {
-  let worker;
-  try {
-    progress("OCR hazırlanır (ilk dəfə bir az çəkir)…");
-    worker = await Tesseract.createWorker("rus", 1, {
-      workerPath: chrome.runtime.getURL("lib/ocr/worker.min.js"),
-      corePath: chrome.runtime.getURL("lib/ocr/tesseract-core-simd.wasm.js"),
-      langPath: chrome.runtime.getURL("lib/ocr"), gzip: false, workerBlobURL: false,
-    });
-    const rows = [["GB nömrəsi", "İnvoys №", "İnvoys tarixi", "Mal adı", "Miqdar", "Qiymət", "Cəm", "Qeyd"].map((t) => ({ v: t, s: XS.head }))];
-    const T = (v) => ({ v: v ?? "", s: XS.text });
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i], tag = `${it.gb} invoys ${it.n}`;
-      if (stopFlag) break;
-      try {
-        const r = await readInvoice(pdfjs, it.bytes, worker, (t) => progress(`${tag} (${i + 1}/${items.length}): ${t}`));
-        if (r.warn || !r.rows.length) { rows.push([T(it.gb), T(r.no), T(r.tarix), T(""), null, null, null, T(r.warn || "Mal sətri tapılmadı")]); log(`${tag}: ${r.warn || "mal sətri tapılmadı"}`); continue; }
-        const first = rows.length + 1;
-        for (const x of r.rows) rows.push([T(it.gb), T(r.no), T(r.tarix), T(x.name), { v: x.qty, s: XS.money }, { v: x.price, s: XS.money }, { v: x.total, s: XS.money }, T(x.flag)]);
-        const last = rows.length;
-        rows.push([{ v: it.gb + " cəmi", s: XS.bold }, null, null, null, { v: { f: `SUM(E${first}:E${last})` }, s: XS.money }, null, { v: { f: `SUM(G${first}:G${last})` }, s: XS.money }, null]);
-        const bad = [!r.no && "nömrə", !r.tarix && "tarix"].filter(Boolean);
-        log(`${tag}: ${r.rows.length} sətir oxundu${bad.length ? " (oxunmadı: " + bad.join(", ") + ")" : ""}${r.rows.some((x) => x.flag) ? "; Qeyd sütununa baxın" : ""}`);
-      } catch (e) { rows.push([T(it.gb), T(""), T(""), T(""), null, null, null, T("XƏTA: " + e.message)]); log(`XƏTA ${tag}: ${e.message}`); }
-    }
-    const xl = await buildXlsx(JSZip, [{ name: "İnvoys", rows, widths: [18, 14, 12, 46, 11, 11, 13, 34], headerHeight: 24, freeze: [0, 1] }]);
-    await save(xl, `Invoys_Excel_${dmy(cfg.from)}_${dmy(cfg.to)}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    log("Excel İnvoys yükləndi.");
-  } finally { try { await worker?.terminate(); } catch (_) {} }
 }
