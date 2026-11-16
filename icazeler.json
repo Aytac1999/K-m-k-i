@@ -1,7 +1,8 @@
 {
   "hamisina_ac": true,
-  "admin": ["XRJBS7BF"],
+  "admin": ["XRJBS7BF", "K9MVF3N3"],
   "istifadeciler": {
-    "XRJBS7BF": { "bitir": null }
+    "XRJBS7BF": { "bitir": null },
+    "K9MVF3N3": { "bitir": null }
   }
 }
