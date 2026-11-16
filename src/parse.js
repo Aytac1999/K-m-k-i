@@ -82,6 +82,11 @@ export function parseDeclaration(files, gbHint = "") {
       if (m && !qty1[parseInt(parts[i], 10)]) qty1[parseInt(parts[i], 10)] = [m[1], m[2]];
     }
   }
+  // "Mal mövqeyi N" sətri qırılıbsa (nömrə başqa sətrə düşüb): "Miqdar 1" sıra ilə mallara aid edilir
+  {
+    const all = [...[...goodsSheets, attach].join("\n").matchAll(R("Miqdar 1\\s+(" + AMT + ")\\s*(\\S+)", "g"))];
+    all.forEach((m, k) => { if (!qty1[k + 1]) qty1[k + 1] = [m[1], m[2]]; });
+  }
   // 44-cü qrafa: müqavilə sənədi. Əvvəl 4011, o yoxdursa 4041 ("kod - <№> <tarix>"); 1-ci vərəqdə və ya qoşma vərəqdə ola bilər
   const findDocs = (code) => {
     const out = [], seenM = new Set();
@@ -110,7 +115,7 @@ export function parseDeclaration(files, gbHint = "") {
       if (!q) for (const l of seg.split("\n").slice(0, 4)) { const m5 = R("^\\s{40,}(" + AMT + ")\\s+([A-Za-zƏəİıÖöÜüŞşÇçĞğ³²\\d]{1,6})\\s*$").exec(l); if (m5) { q = m5; break; } }
       const dv = near(seg, "İnvoys dəyəri", AMT);
       inv[n] = {
-        inv_no: /İnvoysun nömrəsi\s+(\S+)/.exec(seg)?.[1],
+        inv_no: ((v) => (v && !/^(İnvoys\w*|Malın|Mal)$/i.test(v) ? v : undefined))(/İnvoysun nömrəsi[ \t]+(\S+)/.exec(seg)?.[1]),
         inv_tarix: near(seg, "İnvoysun tarixi", "\\d{2}\\.\\d{2}\\.\\d{4}"),
         inv_deyer: dv ? pn(dv) : null,
         miqdar: q ? [q[1], q[2]] : null,
@@ -136,6 +141,7 @@ export function parseDeclaration(files, gbHint = "") {
 
   const rowpat = /(?<!\d)(\d{2})[ \t]+(\d+(?:,\d+)?)[ \t]+(?:(\d+(?:[.,]\d+)?[ \t]*(?:%|AZN))[ \t]+)?(\d+(?:,\d+)?)[ \t]+01(?!\d)/g;
   const goods = [];
+  const pageGoodsTotal = new Set(ms.map((x) => x[1])).size || 1;
   for (const pg of goodsSheets) {
     const lines = pg.split("\n");
     const idx = [];
@@ -227,7 +233,16 @@ export function parseDeclaration(files, gbHint = "") {
       Object.assign(g, inv[g.mal_no] || {}, cost[g.mal_no] || {});
       // malın miqdarı: qoşma vərəqdəki "Malın miqdarı", yoxdursa mal vərəqindəki "Miqdar 1"
       {
-        const q = (inv[g.mal_no] && inv[g.mal_no].miqdar) || qty1[g.mal_no] || null;
+        let q = (inv[g.mal_no] && inv[g.mal_no].miqdar) || qty1[g.mal_no] || null;
+        const isKg = (u) => /^k[qg]$/i.test(u || "");
+        const q1 = qty1[g.mal_no];
+        // qoşma vərəqdə miqdar kq ilə (çəki) yazılıbsa, mal vərəqindəki "Miqdar 1" (məs. m3) əsas götürülür
+        if (q && isKg(q[1]) && q1 && !isKg(q1[1])) q = q1;
+        // "Miqdar 1" netto çəkinin eynisidirsə (GB-də səhv doldurulub), tək mallı GB-də 31-ci qrafadakı həcm götürülür
+        if (q && !isKg(q[1]) && g.netto != null && Math.abs(pn(q[0]) - g.netto) < 0.005 && pageGoodsTotal === 1) {
+          const y = /YER SAYI[^\n]*?\s(\d+(?:[.,]\d+)?)\s*(m3|m³)/.exec(t0);
+          if (y) q = [y[1], y[2]];
+        }
         g.miqdar_num = q ? pn(q[0]) : null;
         g.miqdar_vahid = q ? q[1] : "";
       }
