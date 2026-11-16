@@ -5,6 +5,8 @@ import { buildSheets } from "./src/report.js";
 import { buildXlsx } from "./src/xlsx.js";
 import { readAdoc, mergePdfs, isoDate, cleanName } from "./src/adoc.js";
 import { getFile, putFile, delFile } from "./src/idb.js";
+import { readInvoice } from "./src/invocr.js";
+import { S as XS } from "./src/xlsx.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("lib/pdf.worker.min.mjs");
 
@@ -522,3 +524,40 @@ async function adminPanel(j) {
   $("admBtn").style.display = "inline-block";
   $("admBtn").onclick = () => { $("adm").style.display = $("adm").style.display === "none" ? "block" : "none"; };
 }
+
+// ---------- Excel İnvoys (skan edilmiş invoys PDF-lərindən OCR ilə) ----------
+$("inv_go").onclick = async () => {
+  const log2 = (t) => { $("inv_log").textContent = t; };
+  if (!licensed) return alert("İcazə yoxdur.");
+  const files = [...$("inv_files").files];
+  if (!files.length) return alert("Əvvəl invoys PDF fayllarını seçin.");
+  $("inv_go").disabled = true;
+  let worker;
+  try {
+    log2("OCR hazırlanır (ilk dəfə bir az çəkir)…");
+    worker = await Tesseract.createWorker("rus", 1, {
+      workerPath: chrome.runtime.getURL("lib/ocr/worker.min.js"),
+      corePath: chrome.runtime.getURL("lib/ocr/tesseract-core-simd.wasm.js"),
+      langPath: chrome.runtime.getURL("lib/ocr"), gzip: false, workerBlobURL: false,
+    });
+    const rows = [["Fayl", "İnvoys №", "İnvoys tarixi", "Mal adı", "Miqdar", "Qiymət", "Cəm", "Qeyd"].map((t) => ({ v: t, s: XS.head }))];
+    const notes = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      try {
+        const r = await readInvoice(pdfjs, new Uint8Array(await f.arrayBuffer()), worker, (t) => log2(`${f.name} (${i + 1}/${files.length}): ${t}`));
+        if (r.warn || !r.rows.length) { rows.push([f.name, r.no || null, r.tarix || null, null, null, null, null, r.warn || "Mal sətri tapılmadı"]); notes.push(`${f.name}: ${r.warn || "mal sətri tapılmadı"}`); continue; }
+        const first = rows.length + 1;
+        for (const x of r.rows) rows.push([{ v: f.name, s: XS.text }, { v: r.no || "", s: XS.text }, { v: r.tarix || "", s: XS.text }, { v: x.name, s: XS.text }, { v: x.qty, s: XS.money }, { v: x.price, s: XS.money }, { v: x.total, s: XS.money }, { v: x.flag || "", s: XS.text }]);
+        const last = rows.length;
+        rows.push([{ v: "Cəmi", s: XS.bold }, null, null, null, { v: { f: `SUM(E${first}:E${last})` }, s: XS.money }, null, { v: { f: `SUM(G${first}:G${last})` }, s: XS.money }, null]);
+        if (!r.no || !r.tarix) notes.push(`${f.name}: invoys ${!r.no ? "nömrəsi" : "tarixi"} oxunmadı`);
+        if (r.rows.some((x) => x.flag)) notes.push(`${f.name}: bəzi sətirlər "Qeyd" sütununda işarələnib, yoxlayın`);
+      } catch (e) { rows.push([f.name, null, null, null, null, null, null, "XƏTA: " + e.message]); notes.push(`${f.name}: ${e.message}`); }
+    }
+    const xl = await buildXlsx(JSZip, [{ name: "İnvoys", rows, widths: [28, 14, 12, 46, 11, 11, 13, 34], headerHeight: 24, freeze: [0, 1] }]);
+    await save(xl, `Invoys_${new Date().toISOString().slice(0, 10)}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    log2(`Hazırdır: ${files.length} fayl.` + (notes.length ? "\nYoxlayın:\n" + notes.join("\n") : ""));
+  } catch (e) { log2("XƏTA: " + e.message); }
+  finally { try { await worker?.terminate(); } catch (_) {} $("inv_go").disabled = false; }
+};
