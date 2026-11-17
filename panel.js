@@ -462,7 +462,7 @@ async function selfUpdate(REPO, btn, box) {
     };
     for (const n of names) {
       const rel = n.slice(top.length);
-      if (!rel || rel === "manifest.json" || rel.startsWith(".git")) continue;
+      if (!rel || rel === "manifest.json" || rel.startsWith(".git") || rel.startsWith("desktop/")) continue;
       await put(rel, await z.files[n].async("uint8array"));
     }
     await put("manifest.json", await z.files[top + "manifest.json"].async("uint8array")); // ən axırda
