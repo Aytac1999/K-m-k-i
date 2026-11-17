@@ -1,6 +1,18 @@
 import { putFile } from "./src/idb.js";
 
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+// Proqram (desktop) rejimi: extension qovluğunda desktop.flag varsa, panel yan panel əvəzinə ayrıca proqram pəncərəsində açılır
+async function isDesktop() { try { return (await fetch(chrome.runtime.getURL("desktop.flag"))).ok; } catch (_) { return false; } }
+async function openPanelWindow() {
+  const url = chrome.runtime.getURL("panel.html");
+  const all = await chrome.windows.getAll({ populate: true });
+  const ex = all.find((w) => (w.tabs || []).some((t) => (t.url || "").startsWith(url)));
+  if (ex) { await chrome.windows.update(ex.id, { focused: true }); return; }
+  await chrome.windows.create({ url, type: "popup", width: 470, height: 880, left: 20, top: 20 });
+}
+isDesktop().then((d) => chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: !d }).catch(() => {}));
+chrome.action.onClicked.addListener(async () => { if (await isDesktop()) openPanelWindow(); });
+chrome.runtime.onStartup.addListener(async () => { if (await isDesktop()) openPanelWindow(); });
+chrome.runtime.onInstalled.addListener(async () => { if (await isDesktop()) openPanelWindow(); });
 
 let expectJob = null;
 let busyUntil = 0;             // bu vaxta qədər sayt "untitled" pəncərəsi açsa, bağlanır          // panel "indi bu fayl gələcək" deyir
