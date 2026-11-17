@@ -395,17 +395,20 @@ $("diag").onclick = async () => {
 };
 
 // ---------- yeniləmə yoxlaması (GitHub) ----------
-(async () => {
+async function checkUpdate(manual) {
+  const box = $("upd");
   try {
     const REPO = "Aytac1999/K-m-k-i";
     const r = await fetch(`https://raw.githubusercontent.com/${REPO}/main/version.json?t=${Date.now()}`, { cache: "no-store" });
-    if (!r.ok) return;
+    if (!r.ok) throw new Error("HTTP " + r.status);
     const v = await r.json();
     const cur = chrome.runtime.getManifest().version;
     const num = (s) => String(s).split(".").map((x) => parseInt(x, 10) || 0);
     const newer = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
-    if (!v.version || !newer(v.version, cur)) return;
-    const box = $("upd");
+    if (!v.version || !newer(v.version, cur)) {
+      if (manual) { box.textContent = `Ən son versiyadasınız (v${cur}).`; box.style.display = "block"; setTimeout(() => { box.style.display = "none"; }, 4000); }
+      return;
+    }
     box.innerHTML = "";
     box.append(`Yeni versiya var: ${v.version} (sizdə ${cur}). `);
     const b = document.createElement("button");
@@ -414,8 +417,12 @@ $("diag").onclick = async () => {
     box.append(b);
     if (v.note) box.append(" — " + v.note);
     box.style.display = "block";
-  } catch (_) {}
-})();
+  } catch (e) {
+    if (manual) { box.textContent = "Yoxlamaq alınmadı: " + e.message; box.style.display = "block"; }
+  }
+}
+checkUpdate(false);
+$("updBtn").addEventListener("click", () => checkUpdate(true));
 
 // Extension qovluğunu GitHub-dakı son versiya ilə əvəz edir (qovluq bir dəfə seçilir) və extensionu yenidən yükləyir
 async function selfUpdate(REPO, btn, box) {
