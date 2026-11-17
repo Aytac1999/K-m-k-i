@@ -10,7 +10,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("lib/pdf.worker.min.
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_cmr", "o_diger", "o_musayiet", "folder"];
+const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_cmr", "o_diger", "o_musayiet", "o_sub", "folder"];
 let stopFlag = false;
 
 // ---------- ayarlar ----------
@@ -163,18 +163,20 @@ async function getFile2(fetchCmd, fetchArgs, clickCmd, clickArgs, fallbackName) 
 }
 
 // ---------- fayl saxlamaq ----------
-async function save(bytes, name, mime = "application/octet-stream") {
+async function save(bytes, name, mime = "application/octet-stream", sub = "") {
   name = cleanName(name);
+  sub = sub ? cleanName(sub) : "";
   if (dirHandle) {
+    const dh = sub ? await dirHandle.getDirectoryHandle(sub, { create: true }) : dirHandle;
     let n = name, i = 1;
-    while (await existsIn(dirHandle, n)) n = name.replace(/(\.[^./]+)?$/, (m, ext) => ` (${++i})${ext || ""}`);
-    const w = await (await dirHandle.getFileHandle(n, { create: true })).createWritable();
+    while (await existsIn(dh, n)) n = name.replace(/(\.[^./]+)?$/, (m, ext) => ` (${++i})${ext || ""}`);
+    const w = await (await dh.getFileHandle(n, { create: true })).createWritable();
     await w.write(bytes); await w.close();
     return;
   }
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
   const folder = cleanName($("folder").value || "Gomruk");
-  await chrome.downloads.download({ url, filename: `${folder}/${name}`, conflictAction: "uniquify", saveAs: false });
+  await chrome.downloads.download({ url, filename: `${folder}/${sub ? sub + "/" : ""}${name}`, conflictAction: "uniquify", saveAs: false });
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 function sniffExt(bytes, hint = "") {
@@ -278,6 +280,7 @@ async function run() {
 
     // fayl adı: şirkət (idxalatçı) + GB nömrəsi + portaldakı əməliyyat tarixi
     const comp = {};
+    const subOf = (r) => (cfg.o_sub ? baseName(r) : "");
     const baseName = (r) => [String(comp[r.gb] || "").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim(), r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {
@@ -293,8 +296,8 @@ async function run() {
         let parsed = null;
         try { parsed = parseDeclaration(files, r.gb); comp[r.gb] = parsed.H.gonderen || ""; } catch (e) { if (cfg.o_excel) throw e; }
         const base = baseName(r);
-        if (cfg.o_adoc) await save(f.bytes, `${base}.adoc`);
-        if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${base}.pdf`, "application/pdf"); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
+        if (cfg.o_adoc) await save(f.bytes, `${base}.adoc`, undefined, subOf(r));
+        if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${base}.pdf`, "application/pdf", subOf(r)); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
         if (cfg.o_excel && parsed) results.push(parsed);
       } catch (e) { log(`XƏTA ${r.gb}: ${e.message}`); }
     }
@@ -331,7 +334,7 @@ async function run() {
             try {
               const f = await getFile2("fetchStep1", { label: ex, n: bt.n, mode }, "clickStep1", { label: ex, n: bt.n, mode }, `${r.gb} ${labels[ex]} ${bt.n}`);
               const ext = sniffExt(f.bytes, f.name || f.disp);
-              await save(f.bytes, `${baseName(r)} ${labels[ex]} ${bt.n}${ext}`);
+              await save(f.bytes, `${baseName(r)} ${labels[ex]} ${bt.n}${ext}`, undefined, subOf(r));
               log(`${r.gb}: ${labels[ex]} ${bt.n} yükləndi`);
             } catch (e) { log(`XƏTA ${r.gb} ${labels[ex]} ${bt.n}: ${e.message}`); }
           }
