@@ -167,12 +167,18 @@ async function save(bytes, name, mime = "application/octet-stream", sub = "") {
   name = cleanName(name);
   sub = sub ? cleanName(sub) : "";
   if (dirHandle) {
-    const dh = sub ? await dirHandle.getDirectoryHandle(sub, { create: true }) : dirHandle;
-    let n = name, i = 1;
-    while (await existsIn(dh, n)) n = name.replace(/(\.[^./]+)?$/, (m, ext) => ` (${++i})${ext || ""}`);
-    const w = await (await dh.getFileHandle(n, { create: true })).createWritable();
-    await w.write(bytes); await w.close();
-    return;
+    try {
+      const dh = sub ? await dirHandle.getDirectoryHandle(sub, { create: true }) : dirHandle;
+      let n = name, i = 1;
+      while (await existsIn(dh, n)) n = name.replace(/(\.[^./]+)?$/, (m, ext) => ` (${++i})${ext || ""}`);
+      const w = await (await dh.getFileHandle(n, { create: true })).createWritable();
+      await w.write(bytes); await w.close();
+      return;
+    } catch (e) {
+      // seçilmiş qovluq silinib/köçürülüb/əlçatmazdırsa: brauzer yükləməsinə keçirik
+      log(`Seçilmiş qovluğa yazmaq olmadı (${e.message}). Fayllar Yükləmələr/${cleanName($("folder").value || "Gomruk")} qovluğuna yüklənir. Qovluğu yenidən seçin.`);
+      dirHandle = null; showFolder();
+    }
   }
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
   const folder = cleanName($("folder").value || "Gomruk");
