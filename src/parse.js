@@ -91,7 +91,10 @@ export function parseDeclaration(files, gbHint = "") {
   // 44-cü qrafa: müqavilə sənədi. Əvvəl 4011, o yoxdursa 4041 ("kod - <№> <tarix>"); 1-ci vərəqdə və ya qoşma vərəqdə ola bilər
   const findDocs = (code) => {
     const out = [], seenM = new Set();
-    for (const x of (t0 + "\n" + attach).matchAll(new RegExp("(?:^|\\n)\\s*" + code + "\\s*-\\s*(.+?)\\s+(\\d{2}\\.\\d{2}\\.\\d{4})", "g"))) {
+    const all = [...goodsSheets, attach].join("\n");
+    // sətir sürüşməsi: "- <№> <tarix>" sətri kodun (4011) üstünə düşə bilər
+    const alt = [...all.matchAll(new RegExp("(?:^|\\n)[ \\t]*-[ \\t]*(\\S[^\\n]*?)[ \\t]+(\\d{2}\\.\\d{2}\\.\\d{4})[ \\t]*\\n[ \\t]*" + code + "[ \\t]*(?=\\n|$)", "g"))];
+    for (const x of [...all.matchAll(new RegExp("(?:^|\\n)\\s*" + code + "\\s*-\\s*(.+?)\\s+(\\d{2}\\.\\d{2}\\.\\d{4})", "g")), ...alt]) {
       const key = x[1].trim() + "|" + x[2];
       if (!seenM.has(key)) { seenM.add(key); out.push({ no: x[1].trim(), tarix: x[2] }); }
     }
