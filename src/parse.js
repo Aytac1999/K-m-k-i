@@ -110,7 +110,6 @@ export function parseDeclaration(files, gbHint = "") {
   };
   H.muqavile = findDocs("4011");
   H.muqavile_kod = H.muqavile.length ? "4011" : "";
-  if (!H.muqavile.length) { H.muqavile = findDocs("4041"); if (H.muqavile.length) H.muqavile_kod = "4041"; }
   H.muqavile_no = H.muqavile.map((m) => m.no).join("; ");
   H.muqavile_tarix = H.muqavile.map((m) => m.tarix).join("; ");
 
