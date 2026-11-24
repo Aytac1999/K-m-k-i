@@ -20,7 +20,7 @@ export function buildSheets(results, releaseByGb = {}) {
     const unit = { "166": "kq", "168": "ton", "112": "litr", "113": "m³", "055": "m²", "006": "m", "796": "ədəd", "839": "komplekt" }[g.ov_kod] || g.ov_kod || null;
     const m = (c) => od[c]?.mebleg ?? null;
     mrows.push([
-      { v: g.gb, s: S.text }, { v: g.gb.startsWith("11") ? "11 İdxal 00" : "01 İdxal 40", s: S.text }, { v: g.mal_no, s: S.intc }, { v: g.kod, s: S.text },
+      { v: g.gb, s: S.text }, { v: hOf(g).tip || (g.gb.startsWith("11") ? "11 İdxal 00" : "01 İdxal 40"), s: S.text }, { v: g.mal_no, s: S.intc }, { v: g.kod, s: S.text },
       { v: g.ad, s: S.text }, { v: g.olke ?? null, s: S.text }, { v: g.brutto ?? null, s: S.money }, { v: g.netto ?? null, s: S.money }, { v: unit, s: S.text }, { v: g.miqdar_num ?? null, s: S.money },
       { v: g.inv_no ?? null, s: S.text }, { v: g.inv_tarix ? serial(g.inv_tarix) : null, s: S.date }, { v: g.invoys_deyeri ?? null, s: S.money }, { v: g.gomruk_deyeri ?? null, s: S.money },
       { v: rate(od["20"]?.derece), s: S.pct }, { v: rate(od["32"]?.derece), s: S.pct },
