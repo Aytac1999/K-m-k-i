@@ -276,11 +276,10 @@ async function run() {
     }
     const allList = [...seen.values()];
     log(`Siyahı (${allList.length}): ` + allList.map((r) => `${r.gb} [${r.tip}] ${r.op || "?"}`).join(" | "));
-    // yalnız "Mal buraxıldı" statuslu GB-lər (status oxunmayıbsa, sətir saxlanılır)
-    const notReleased = allList.filter((r) => r.status && !/Mal buraxıl/i.test(r.status));
-    if (notReleased.length) log(`Buraxılmayanlar atıldı (${notReleased.length}): ` + notReleased.map((r) => `${r.gb} (${r.status.replace(/\s+/g, " ")})`).join(" | "));
-    let rows = allList.filter((r) => !notReleased.includes(r) && (r.tip === "tam" ? cfg.k_tam : cfg.k_qisa));
-    if (rows.length !== allList.length - notReleased.length) log(`Növə görə atılanlar (${cfg.k_tam ? "" : "tam "}${cfg.k_qisa ? "" : "qısa"} seçilməyib): ` + allList.filter((r) => !notReleased.includes(r) && !rows.includes(r)).map((r) => r.gb).join(", "));
+    let rows = allList.filter((r) => (r.tip === "tam" ? cfg.k_tam : cfg.k_qisa));
+    if (rows.length !== allList.length) log(`Növə görə atılanlar (${cfg.k_tam ? "" : "tam "}${cfg.k_qisa ? "" : "qısa"} seçilməyib): ` + allList.filter((r) => !rows.includes(r)).map((r) => r.gb).join(", "));
+    const nr = rows.filter((r) => r.status && !/Mal buraxıl/i.test(r.status));
+    if (nr.length) log(`Qeyd: buraxılmamış GB-lər də götürüldü (${nr.length}): ` + nr.map((r) => `${r.gb} (${r.status.replace(/\s+/g, " ")})`).join(" | "));
     log(`Tapıldı: ${rows.length} bəyannamə.`);
     if (!rows.length) throw new Error("Seçilmiş aralıqda bəyannamə tapılmadı.");
     rows.forEach((r) => { release[r.gb] = r.op; statusOf[r.gb] = r.status || ""; });
