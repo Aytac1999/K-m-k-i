@@ -71,8 +71,16 @@ export function parseDeclaration(files, gbHint = "") {
 
   // 1-ci vərəq, 44-cü qrafa: "8001 - <invoys №> <tarix> <məbləğ>" (invoys sənədinin kodu)
   H.inv8001 = [];
-  for (const x of t0.matchAll(/(?:^|\n)\s*8001\s+-\s+(.+?)\s+(\d{2}\.\d{2}\.\d{4})(?:\s+(\d[\d\s.,]*))?\s*(?=\n|$)/g))
-    H.inv8001.push({ no: x[1].trim(), tarix: x[2], deyer: x[3] ? pn(x[3].trim()) : null });
+  const re8001 = /(?:^|\n)\s*8001\s+-\s+(.+?)\s+(\d{2}\.\d{2}\.\d{4})(?:\s+(\d[\d\s.,]*))?\s*(?=\n|$)/g;
+  for (const x of t0.matchAll(re8001)) H.inv8001.push({ no: x[1].trim(), tarix: x[2], deyer: x[3] ? pn(x[3].trim()) : null });
+  // 1-ci vərəqdə tapılmayıbsa, bütün vərəqlərdə axtarırıq (sətir sürüşməsi daxil)
+  if (!H.inv8001.length) {
+    const all = [...goodsSheets, attach].join("\n");
+    for (const x of all.matchAll(re8001)) H.inv8001.push({ no: x[1].trim(), tarix: x[2], deyer: x[3] ? pn(x[3].trim()) : null });
+    if (!H.inv8001.length)
+      for (const x of all.matchAll(/(?:^|\n)[ \t]*-[ \t]*(\S[^\n]*?)[ \t]+(\d{2}\.\d{2}\.\d{4})[ \t]*\n[ \t]*8001[ \t]*(?=\n|$)/g))
+        H.inv8001.push({ no: x[1].trim(), tarix: x[2], deyer: null });
+  }
 
   // mal vərəqlərində "Mal mövqeyi N ... Miqdar 1 <say> <vahid>" (ehtiyat mənbə)
   const qty1 = {};
