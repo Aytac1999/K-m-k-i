@@ -13,8 +13,7 @@
   "host_permissions": [
     "*://*.customs.gov.az/*",
     "https://raw.githubusercontent.com/*",
-    "https://codeload.github.com/*",
-    "https://api.github.com/*"
+    "https://codeload.github.com/*"
   ],
   "background": {
     "service_worker": "background.js",
