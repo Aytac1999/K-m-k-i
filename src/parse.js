@@ -31,7 +31,8 @@ export function parseDeclaration(files, gbHint = "") {
   if (!gb) gb = (t0.match(GBPAT) || [])[0];
   if (!gb) gb = gbHint;
   if (!gb) throw new Error("GB nömrəsi PDF-dən oxunmadı");
-  const H = { gb, tip: gb.startsWith("01") ? "01 İdxal 40" : "11 İdxal 00" };
+  const idm = /\bID\s+(\d{2})\s+1\$ - /.exec(t0.slice(0, 600)); // qrafa 1: rejim kodu (İD 40, İD 61 ...)
+  const H = { gb, tip: gb.startsWith("01") ? `01 İdxal ${idm ? idm[1] : 40}` : "11 İdxal 00" };
   let hi = lines0.findIndex((l) => /1\$ - [\d,]+ AZN/.test(l));
   if (hi < 0) hi = 0;
   H.tarix = (/\d{2}\.\d{2}\.\d{4}/.exec(lines0[hi]) || [""])[0];
