@@ -528,21 +528,12 @@ function qerar(j, kod) {
     const q = kesh.q;
     apply(!q.ok || !q.bitir || isoG(new Date()) <= q.bitir ? q : { ok: false, sebeb: "bitib", bitir: q.bitir });
   } else lock(true, "İcazə yoxlanılır …");
-  $("relock").onclick = () => location.reload();
-  $("lockUpd").onclick = () => checkUpdate(true, true);
   for (let c = 0; c < 3; c++) {
     try {
-      let r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
+      const r = await fetch(`https://raw.githubusercontent.com/${LIC_REPO}/main/icazeler.json?t=${Date.now()}`, { cache: "no-store" });
       if (r.status === 404) return apply({ ok: true, bitir: null }); // fayl yoxdur: məhdudiyyət yoxdur
       if (r.ok) {
-        let j = await r.json();
-        // keş gecikməsi ola bilər: kod siyahıda yoxdursa, GitHub API-dən (keşsiz) bir də baxırıq
-        if (!qerar(j, kod).ok) {
-          try {
-            const r2 = await fetch(`https://api.github.com/repos/${LIC_REPO}/contents/icazeler.json`, { cache: "no-store", headers: { Accept: "application/vnd.github.raw" } });
-            if (r2.ok) j = await r2.json();
-          } catch (_) {}
-        }
+        const j = await r.json();
         const q = qerar(j, kod);
         await chrome.storage.local.set({ kesh: { kod, q } });
         apply(q);
