@@ -36,14 +36,15 @@
       const created = DATE.test(txt(cells[gi + 1] || {})) ? txt(cells[gi + 1]) : dates[1] || dates[0] || "";
       const op = DATE.test(txt(cells[gi - 1] || {})) ? txt(cells[gi - 1]) : dates[0] || "";
       const tipTxt = cells.map(txt).find((t) => /^(01|11)\s*İdxal\s*\d+/.test(t)) || "";
-      out.push({ gb, created, op, tip: gb.startsWith("01") ? "tam" : "qisa", tipTxt, tr, cells });
+      const status = cells.map(txt).find((t) => /Mal buraxıl|Rəsmiləşdirmə|Təqdim edilmiş|Qeydiyyat|Ləğv|Rədd|Yoxlama/i.test(t)) || "";
+      out.push({ gb, created, op, tip: gb.startsWith("01") ? "tam" : "qisa", tipTxt, status, tr, cells });
     });
     return out;
   }
   const dkey = (d) => { const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(d || ""); return m ? m[3] + m[2] + m[1] : ""; };
   // Eyni GB nömrəsi təkrarlanarsa ən son əməliyyat tarixli sətir qalır
   const keepLatest = (map, r) => { const o = map.get(r.gb); if (!o || dkey(r.op) >= dkey(o.op)) map.set(r.gb, r); };
-  const plain = (r) => ({ gb: r.gb, created: r.created, op: r.op, tip: r.tip });
+  const plain = (r) => ({ gb: r.gb, created: r.created, op: r.op, tip: r.tip, status: r.status || "" });
 
   // ---------- filtrlər ----------
   function pickOption(sel, tests) {

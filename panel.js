@@ -251,7 +251,7 @@ async function run() {
     await toPage(pageOf[gb] || 1);
     if (!(await drive("hasRow", { gb })).has) throw new Error(`GB siyahıda tapılmadı (səhifə ${pageOf[gb] || 1}): ${gb}`);
   }
-  const results = [], release = {};
+  const results = [], release = {}, statusOf = {};
   try {
     status("Portal açılır…");
     await gotoList();
@@ -280,7 +280,7 @@ async function run() {
     if (rows.length !== allList.length) log(`Növə görə atılanlar (${cfg.k_tam ? "" : "tam "}${cfg.k_qisa ? "" : "qısa"} seçilməyib): ` + allList.filter((r) => !rows.includes(r)).map((r) => r.gb).join(", "));
     log(`Tapıldı: ${rows.length} bəyannamə.`);
     if (!rows.length) throw new Error("Seçilmiş aralıqda bəyannamə tapılmadı.");
-    rows.forEach((r) => (release[r.gb] = r.op));
+    rows.forEach((r) => { release[r.gb] = r.op; statusOf[r.gb] = r.status || ""; });
     const total = rows.length * ((needAdoc ? 1 : 0) + (extras.length ? 1 : 0));
     let done = 0; $("bar").hidden = false; $("bar").max = total; $("bar").value = 0;
 
@@ -311,7 +311,7 @@ async function run() {
     // 2) Excel
     if (cfg.o_excel && results.length && !stopFlag) {
       applyPrevValues(results);
-      const xl = await buildXlsx(JSZip, buildSheets(results, release));
+      const xl = await buildXlsx(JSZip, buildSheets(results, release, statusOf));
       await save(xl, `GB_terkib_${dmy(cfg.from)}_${dmy(cfg.to)}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       log(`Excel: ${results.length} bəyannamə.`);
     }
