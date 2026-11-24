@@ -403,7 +403,7 @@ $("diag").onclick = async () => {
 };
 
 // ---------- yeniləmə yoxlaması (GitHub) ----------
-async function checkUpdate(manual) {
+async function checkUpdate(manual, auto) {
   const box = $("upd");
   try {
     const REPO = "Aytac1999/K-m-k-i";
@@ -425,12 +425,13 @@ async function checkUpdate(manual) {
     box.append(b);
     if (v.note) box.append(" — " + v.note);
     box.style.display = "block";
+    if (auto) selfUpdate(REPO, b, box);
   } catch (e) {
     if (manual) { box.textContent = "Yoxlamaq alınmadı: " + e.message; box.style.display = "block"; }
   }
 }
 checkUpdate(false);
-$("updBtn").addEventListener("click", () => checkUpdate(true));
+$("updBtn").addEventListener("click", () => checkUpdate(true, true));
 
 // Extension qovluğunu GitHub-dakı son versiya ilə əvəz edir (qovluq bir dəfə seçilir) və extensionu yenidən yükləyir
 async function selfUpdate(REPO, btn, box) {
@@ -444,7 +445,7 @@ async function selfUpdate(REPO, btn, box) {
       if (pm !== "granted") h = null;
     }
     if (!h) {
-      alert("Extensionun qovluğunu seçin (içində manifest.json olan qovluq). Bu yalnız bir dəfə lazımdır.");
+      box.append(document.createElement("br"), "Açılan pəncərədə extensionun qovluğunu seçin (içində manifest.json olan qovluq). Bu yalnız bir dəfə lazımdır.");
       h = await window.showDirectoryPicker({ mode: "readwrite", id: "gomruk-ext" });
       try { await h.getFileHandle("manifest.json"); } catch (_) { throw new Error("Seçilən qovluqda manifest.json yoxdur"); }
       await putFile("extHandle", h);
@@ -456,16 +457,20 @@ async function selfUpdate(REPO, btn, box) {
     const names = Object.keys(z.files).filter((n) => !z.files[n].dir);
     const top = names[0].split("/")[0] + "/";
     msg("Yazılır…");
-    const put = async (rel, data) => {
-      const parts = rel.split("/"); let d = h;
-      for (const s of parts.slice(0, -1)) d = await d.getDirectoryHandle(s, { create: true });
-      const w = await (await d.getFileHandle(parts[parts.length - 1], { create: true })).createWritable();
-      await w.write(data); await w.close();
-    };
-    for (const n of names) {
-      const rel = n.slice(top.length);
-      if (!rel || rel === "manifest.json" || rel.startsWith(".git") || rel.startsWith("desktop/")) continue;
-      await put(rel, await z.files[n].async("uint8array"));
+    const put = (rel, data) => Promise.race([
+      (async () => {
+        const parts = rel.split("/"); let d = h;
+        for (const s of parts.slice(0, -1)) d = await d.getDirectoryHandle(s, { create: true });
+        const w = await (await d.getFileHandle(parts[parts.length - 1], { create: true })).createWritable();
+        await w.write(data); await w.close();
+      })(),
+      new Promise((_, rj) => setTimeout(() => rj(new Error("fayl yazılmadı (30 san gözlədi): " + rel)), 30000)),
+    ]);
+    const list = names.filter((n) => { const rel = n.slice(top.length); return rel && rel !== "manifest.json" && !rel.startsWith(".git") && !rel.startsWith("desktop/"); });
+    let k = 0;
+    for (const n of list) {
+      msg(`Yazılır ${++k}/${list.length}…`);
+      await put(n.slice(top.length), await z.files[n].async("uint8array"));
     }
     await put("manifest.json", await z.files[top + "manifest.json"].async("uint8array")); // ən axırda
     msg("Yeniləndi, yenidən başlayır…");
