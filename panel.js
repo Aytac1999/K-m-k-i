@@ -258,12 +258,16 @@ async function run() {
     status("Siyahı axtarılır…");
     const parts0 = chunks(cfg.from, cfg.to);
     if (parts0.length > 1) log(`Aralıq 1 ildən uzundur: ${parts0.length} hissəyə bölünür.`);
+    const ixNames = String(cfg.ixrac || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
     const seen = new Map();
     let ci = 0;
     for (const [a, b] of parts0) {
       if (stopFlag) break;
-      if (ci++ > 0) await gotoList(); // hər hissə təzə siyahı səhifəsindən başlayır (əvvəlki axtarışın vəziyyəti qalmasın)
-      const f = { from: dmy(a), to: dmy(b), rep: "sahibkar" };
+      ci++;
+     for (const nm of (ixNames.length ? ixNames : [""])) {
+      if (stopFlag) break;
+      if (ci > 1 || nm !== (ixNames[0] || "")) await gotoList();
+      const f = { from: dmy(a), to: dmy(b), rep: "sahibkar", name: nm };
       const ar = await drive("applyFilters", f);
       if (ar && ar.error) { log(`${f.from}–${f.to}: ${ar.error}`); continue; }
       if (ar && ar.empty) { log(`${f.from}–${f.to}: bu aralıqda GB yoxdur${ar.msg ? " (" + ar.msg + ")" : ""}`); continue; }
@@ -272,7 +276,8 @@ async function run() {
       const la = await drive("listAll");
       for (const pg of la.pages) { take(pg.rows, pg.n); log(`${f.from}–${f.to}: səhifə ${pg.n}: ${pg.rows.length} sətir`); }
       if (la.err) log(`Səhifələmə dayandı: ${la.err}`);
-      log(`${f.from}–${f.to}: cəmi ${seen.size}`);
+      log(`${f.from}–${f.to}${nm ? " [" + nm + "]" : ""}: cəmi ${seen.size}`);
+     }
     }
     const allList = [...seen.values()];
     log(`Siyahı (${allList.length}): ` + allList.map((r) => `${r.gb} [${r.tip}] ${r.op || "?"}`).join(" | "));
@@ -290,10 +295,10 @@ async function run() {
     const comp = {};
     const subOf = (r) => (cfg.o_sub ? baseName(r) : "");
     const nrm = (s) => String(s || "").toUpperCase().replace(/İ/g, "I").replace(/\s+/g, " ").trim();
-    const ixList = String(cfg.ixrac || "").split(/[,;\n]/).map(nrm).filter(Boolean);
+    const ixList = []; // süzmə artıq portalın «Göndərənin/İx. adı» xanası ilə gedir
     const ixOk = (r) => !ixList.length || ixList.some((q) => nrm(comp[r.gb]).includes(q));
     const ixSkip = new Set();
-    if (ixList.length) log(`İxracatçı filtri: ${ixList.join(" | ")}`);
+    if (ixNames.length) log(`İxracatçı filtri (portalda): ${ixNames.join(" | ")}`);
     const baseName = (r) => [String(comp[r.gb] || "").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim(), r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {

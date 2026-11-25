@@ -54,7 +54,7 @@
     sel.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
   }
-  async function applyFilters({ from, to, rep }) {
+  async function applyFilters({ from, to, rep, name }) {
     const sels = [...document.querySelectorAll("select")];
     if (!sels.length) return { error: "Siyahı səhifəsi açıq deyil (Əsas səhifə)." };
     let okAll = false, okRep = false;
@@ -83,6 +83,14 @@
     };
     if (ins[0]) setv(ins[0], from);
     if (ins[1]) setv(ins[1], to);
+    if (name) {
+      // «Göndərənin/İx. adı» xanası: etiketdən sonrakı ilk mətn xanası
+      const lab = [...dlg.querySelectorAll("td,span,label,div,b,font")].filter((e) => /Göndərənin\s*\/\s*İx\.?\s*adı/i.test(e.innerText || "") && (e.innerText || "").length < 60)
+        .sort((x, y) => x.innerText.length - y.innerText.length)[0];
+      const ni = lab && ins.find((i) => i !== ins[0] && i !== ins[1] && (lab.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING));
+      if (!ni) return { error: "«Göndərənin/İx. adı» xanası tapılmadı" };
+      setv(ni, name);
+    }
     await sleep(200);
     // yoxlama: xanalarda düzgün tarix qalıbmı
     if (ins[0] && ins[0].value !== from) setv(ins[0], from);
