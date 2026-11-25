@@ -84,11 +84,18 @@
     if (ins[0]) setv(ins[0], from);
     if (ins[1]) setv(ins[1], to);
     if (name) {
-      // «Göndərənin/İx. adı» xanası: etiketdən sonrakı ilk mətn xanası
-      const lab = [...dlg.querySelectorAll("td,span,label,div,b,font")].filter((e) => /Göndərənin\s*\/\s*İx\.?\s*adı/i.test(e.innerText || "") && (e.innerText || "").length < 60)
-        .sort((x, y) => x.innerText.length - y.innerText.length)[0];
-      const ni = lab && ins.find((i) => i !== ins[0] && i !== ins[1] && (lab.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING));
-      if (!ni) return { error: "«Göndərənin/İx. adı» xanası tapılmadı" };
+      // «Göndərənin/İx. adı» xanası: etiketdən sonrakı ilk görünən mətn xanası (pəncərənin hamısında axtarılır)
+      const norm = (s) => String(s || "").replace(/\s+/g, " ").toLocaleLowerCase("az");
+      const isLab = (e) => { const t = norm(e.innerText); return t.length < 80 && /göndərənin\s*\/?\s*i?x?\.?\s*adı|göndərənin.{0,12}adı/.test(t.replace(/İ/g, "i")); };
+      const scope = [document.body];
+      const labs = [...document.querySelectorAll("td,th,span,label,div,b,font,p")].filter((e) => e.offsetParent !== null && isLab(e)).sort((x, y) => x.innerText.length - y.innerText.length);
+      const allIn = [...document.querySelectorAll("input")].filter((i) => (i.type === "text" || i.type === "") && i.offsetParent !== null && i !== ins[0] && i !== ins[1]);
+      let ni = null;
+      for (const lab of labs) { ni = allIn.find((i) => !lab.contains(i) ? (lab.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING) : true); if (ni) break; }
+      if (!ni) {
+        const seenL = [...document.querySelectorAll("td,span,label")].filter((e) => e.offsetParent !== null && /Göndər|İx|adı/i.test(e.innerText || "") && (e.innerText || "").length < 50).map((e) => txt(e)).filter((t, i, a) => a.indexOf(t) === i).slice(0, 12).join(" | ");
+        return { error: `«Göndərənin/İx. adı» xanası tapılmadı. Pəncərədə görünən yazılar: ${seenL || "(yoxdur)"}; mətn xanası sayı: ${allIn.length}` };
+      }
       setv(ni, name);
     }
     await sleep(200);
