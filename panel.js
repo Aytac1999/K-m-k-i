@@ -500,6 +500,11 @@ const LIC_REPO = "Aytac1999/K-m-k-i";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const isoG = (d) => d.toISOString().slice(0, 10);
 async function myId() {
+  // masaüstü quraşdırmada kod kompüterə sabit bağlıdır (kod.txt, Windows MachineGuid-dən)
+  try {
+    const t = (await (await fetch(chrome.runtime.getURL("kod.txt"), { cache: "no-store" })).text()).trim().toUpperCase();
+    if (/^[A-Z2-9]{8}$/.test(t)) { await chrome.storage.local.set({ devid: t }); return t; }
+  } catch (_) {}
   let { devid } = await chrome.storage.local.get("devid");
   if (!devid || !/^[A-Z2-9]{8}$/.test(devid)) {
     const b = crypto.getRandomValues(new Uint8Array(8));
