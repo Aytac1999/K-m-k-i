@@ -10,7 +10,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL("lib/pdf.worker.min.
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_cmr", "o_diger", "o_musayiet", "o_sub", "folder"];
+const IDS = ["from", "to", "k_tam", "k_qisa", "o_adoc", "o_merged", "o_excel", "o_invoys", "o_cmr", "o_diger", "o_musayiet", "o_sub", "ixrac", "folder"];
 let stopFlag = false;
 
 // ---------- ayarlar ----------
@@ -289,6 +289,11 @@ async function run() {
     // fayl adı: şirkət (idxalatçı) + GB nömrəsi + portaldakı əməliyyat tarixi
     const comp = {};
     const subOf = (r) => (cfg.o_sub ? baseName(r) : "");
+    const nrm = (s) => String(s || "").toUpperCase().replace(/İ/g, "I").replace(/\s+/g, " ").trim();
+    const ixList = String(cfg.ixrac || "").split(/[,;\n]/).map(nrm).filter(Boolean);
+    const ixOk = (r) => !ixList.length || ixList.some((q) => nrm(comp[r.gb]).includes(q));
+    const ixSkip = new Set();
+    if (ixList.length) log(`İxracatçı filtri: ${ixList.join(" | ")}`);
     const baseName = (r) => [String(comp[r.gb] || "").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim(), r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {
@@ -303,6 +308,7 @@ async function run() {
         for (const p of parts) files.push({ n: p.n, pages: await pdfPages(pdfjs, p.bytes) });
         let parsed = null;
         try { parsed = parseDeclaration(files, r.gb); comp[r.gb] = parsed.H.gonderen || ""; } catch (e) { if (cfg.o_excel) throw e; }
+        if (!ixOk(r)) { ixSkip.add(r.gb); log(`${r.gb}: ixracatçı uyğun deyil (${comp[r.gb] || "oxunmadı"}) — keçildi`); continue; }
         const base = baseName(r);
         if (cfg.o_adoc) await save(f.bytes, `${base}.adoc`, undefined, subOf(r));
         if (cfg.o_merged) { const m = await mergePdfs(PDFLib, parts.map((p) => p.bytes)); await save(m.bytes, `${base}.pdf`, "application/pdf", subOf(r)); log(`${r.gb}: ${parts.length} PDF → ${m.pages} səhifə`); }
@@ -322,6 +328,7 @@ async function run() {
     if (extras.length) for (const r of rows) {
       if (stopFlag) break;
       status(`Müşayiət: ${r.gb} (${++done}/${total})`); $("bar").value = done;
+      if (ixSkip.has(r.gb)) continue;
       try {
         await ensureRow(r.gb, true);
         if (comp[r.gb] === undefined) {
@@ -332,6 +339,7 @@ async function run() {
           } catch (e) { comp[r.gb] = ""; log(`${r.gb}: şirkət adı oxunmadı (${e.message})`); }
           await ensureRow(r.gb, true);
         }
+        if (!ixOk(r)) { log(`${r.gb}: ixracatçı uyğun deyil (${comp[r.gb] || "oxunmadı"}) — keçildi`); await gotoList(); continue; }
         await drive("openGb", { gb: r.gb });
         await waitPage((x) => x.hasStep1);
         const labels = { invoys: "invoys", cmr: "CMR", diger: "digər sənədlər", musayiet: "əlavə sənədlər" };

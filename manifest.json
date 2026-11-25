@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gömrük Köməkçisi",
-  "version": "0.11.10",
+  "version": "0.11.12",
   "description": "e.customs.gov.az saytında GB-ləri və müşayiət sənədlərini yükləyir, PDF-ləri birləşdirir, məlumatları Excel-ə çıxarır.",
   "permissions": [
     "downloads",
