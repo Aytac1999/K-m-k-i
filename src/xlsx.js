@@ -37,7 +37,7 @@ function sheetXml(sh) {
       let v = c, s = sh.styles?.[r]?.[i];
       if (typeof c === "object") { v = c.f !== undefined ? c : c.v; s = c.s ?? s; }
       const sa = s ? ` s="${s}"` : "";
-      if (v === null || v === undefined || v === "") return "";
+      if (v === null || v === undefined) return `<c r="${ref}"${sa}/>`;
       if (typeof v === "object" && v.f !== undefined) return `<c r="${ref}"${sa}><f>${esc(v.f)}</f></c>`;
       if (typeof v === "number") return `<c r="${ref}"${sa}><v>${v}</v></c>`;
       return `<c r="${ref}"${sa} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
