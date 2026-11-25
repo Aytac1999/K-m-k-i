@@ -260,23 +260,41 @@ async function run() {
     if (parts0.length > 1) log(`Aralıq 1 ildən uzundur: ${parts0.length} hissəyə bölünür.`);
     const ixNames = String(cfg.ixrac || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
     const seen = new Map();
+    let ixLoose = false; // qısaldılmış adla axtarış edilibsə, nəticə sonradan dəqiqləşdirilir
+    const ixKey = (s) => String(s || "").toUpperCase().replace(/İ/g, "I").replace(/[^\p{L}\p{N}]+/gu, "");
+    const ixVariants = (s) => {
+      const clean = String(s).replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+      const legal = /^(MMC|ASC|QSC|LLC|OOO|OAO|ZAO|AO|LTD|GMBH|JSC|OJSC|INC|SIA|TIC|STI|SAN|VE|AS|A S)$/i;
+      const w = clean.split(" ").filter((x) => x.length > 1 && !legal.test(x));
+      const out = [String(s).trim(), clean, w.slice(0, 2).join(" "), w[0] || ""];
+      return out.filter((x, i, a) => x && a.indexOf(x) === i);
+    };
     let ci = 0;
     for (const [a, b] of parts0) {
       if (stopFlag) break;
       ci++;
      for (const nm of (ixNames.length ? ixNames : [""])) {
       if (stopFlag) break;
-      if (ci > 1 || nm !== (ixNames[0] || "")) await gotoList();
-      const f = { from: dmy(a), to: dmy(b), rep: "sahibkar", name: nm };
-      const ar = await drive("applyFilters", f);
-      if (ar && ar.error) { log(`${f.from}–${f.to}: ${ar.error}`); continue; }
-      if (ar && ar.empty) { log(`${f.from}–${f.to}: bu aralıqda GB yoxdur${ar.msg ? " (" + ar.msg + ")" : ""}`); continue; }
-      const k = (d) => { const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(d || ""); return m ? m[3] + m[2] + m[1] : ""; };
-      const take = (list, pn) => { for (const r of list) { const o = seen.get(r.gb); if (!o || k(r.op) > k(o.op)) { seen.set(r.gb, r); filtOf[r.gb] = f; pageOf[r.gb] = pn; } } };
-      const la = await drive("listAll");
-      for (const pg of la.pages) { take(pg.rows, pg.n); log(`${f.from}–${f.to}: səhifə ${pg.n}: ${pg.rows.length} sətir`); }
-      if (la.err) log(`Səhifələmə dayandı: ${la.err}`);
-      log(`${f.from}–${f.to}${nm ? " [" + nm + "]" : ""}: cəmi ${seen.size}`);
+      const variants = nm ? ixVariants(nm) : [""];
+      for (let vi = 0; vi < variants.length; vi++) {
+        if (stopFlag) break;
+        if (ci > 1 || nm !== (ixNames[0] || "") || vi > 0) await gotoList();
+        const f = { from: dmy(a), to: dmy(b), rep: "sahibkar", name: variants[vi] };
+        const ar = await drive("applyFilters", f);
+        if (ar && ar.error) { log(`${f.from}–${f.to}: ${ar.error}`); break; }
+        if (ar && ar.empty) {
+          if (vi < variants.length - 1) { log(`${f.from}–${f.to}: «${variants[vi]}» ilə tapılmadı, qısaldılmış ad sınanır`); continue; }
+          log(`${f.from}–${f.to}: bu aralıqda GB yoxdur${ar.msg ? " (" + ar.msg + ")" : ""}`); break;
+        }
+        if (vi > 0) ixLoose = true;
+        const k = (d) => { const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(d || ""); return m ? m[3] + m[2] + m[1] : ""; };
+        const take = (list, pn) => { for (const r of list) { const o = seen.get(r.gb); if (!o || k(r.op) > k(o.op)) { seen.set(r.gb, r); filtOf[r.gb] = f; pageOf[r.gb] = pn; } } };
+        const la = await drive("listAll");
+        for (const pg of la.pages) { take(pg.rows, pg.n); log(`${f.from}–${f.to}: səhifə ${pg.n}: ${pg.rows.length} sətir`); }
+        if (la.err) log(`Səhifələmə dayandı: ${la.err}`);
+        log(`${f.from}–${f.to}${variants[vi] ? " [" + variants[vi] + "]" : ""}: cəmi ${seen.size}`);
+        break;
+      }
      }
     }
     const allList = [...seen.values()];
@@ -295,10 +313,10 @@ async function run() {
     const comp = {};
     const subOf = (r) => (cfg.o_sub ? baseName(r) : "");
     const nrm = (s) => String(s || "").toUpperCase().replace(/İ/g, "I").replace(/\s+/g, " ").trim();
-    const ixList = []; // süzmə artıq portalın «Göndərənin/İx. adı» xanası ilə gedir
-    const ixOk = (r) => !ixList.length || ixList.some((q) => nrm(comp[r.gb]).includes(q));
+    const ixList = ixLoose ? ixNames.map(ixKey).filter(Boolean) : []; // qısaldılmış adla tapılıbsa PDF-dəki adla dəqiqləşdirilir (durğu işarələri nəzərə alınmır)
+    const ixOk = (r) => { if (!ixList.length) return true; const c = ixKey(comp[r.gb]); return !!c && ixList.some((q) => c.includes(q) || q.includes(c)); };
     const ixSkip = new Set();
-    if (ixNames.length) log(`İxracatçı filtri (portalda): ${ixNames.join(" | ")}`);
+    if (ixNames.length) log(`İxracatçı filtri (portalda): ${ixNames.join(" | ")}${ixLoose ? " — qısaldılmış adla axtarıldı, nəticə PDF-dəki adla dəqiqləşdirilir" : ""}`);
     const baseName = (r) => [String(comp[r.gb] || "").replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim(), r.gb, r.op || "tarixsiz"].filter(Boolean).join(" ");
     // 1) .adoc faylları (siyahıdan)
     if (needAdoc) for (const r of rows) {
