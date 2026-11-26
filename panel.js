@@ -269,6 +269,26 @@ async function run() {
       const out = [String(s).trim(), clean, w.slice(0, 2).join(" "), w[0] || ""];
       return out.filter((x, i, a) => x && a.indexOf(x) === i);
     };
+    const k2 = (d) => { const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(d || ""); return m ? m[3] + m[2] + m[1] : ""; };
+    // Səhifələmə natamam qalıbsa: aralıq yarıya bölünür və hər yarı ayrıca oxunur (kiçik aralıq = az səhifə)
+    async function splitFetch(a, b, name, depth) {
+      const A = new Date(a + "T00:00:00Z").getTime(), B = new Date(b + "T00:00:00Z").getTime();
+      if (B - A < 86400000 || depth > 6) { log(`${dmy(a)}–${dmy(b)}: daha bölünmür, çatmayanlar qala bilər`); return; }
+      const mid = new Date(Math.floor((A + B) / 2 / 86400000) * 86400000).toISOString().slice(0, 10);
+      const mid2 = new Date(new Date(mid + "T00:00:00Z").getTime() + 86400000).toISOString().slice(0, 10);
+      for (const [x, y] of [[a, mid], [mid2, b]]) {
+        if (stopFlag) return;
+        if (x > y) continue;
+        await gotoList();
+        const f = { from: dmy(x), to: dmy(y), rep: "sahibkar", name };
+        const ar = await drive("applyFilters", f);
+        if (!ar || ar.error || ar.empty) { if (ar && ar.error) log(`${f.from}–${f.to}: ${ar.error}`); continue; }
+        const la = await drive("listAll");
+        for (const pg of la.pages) for (const r of pg.rows) { const o = seen.get(r.gb); if (!o || k2(r.op) > k2(o.op)) { seen.set(r.gb, r); filtOf[r.gb] = f; pageOf[r.gb] = pg.n; } }
+        log(`${f.from}–${f.to} (bölünmüş): portal ${la.total ?? "?"}, yığıldı ${la.got}${la.err ? ", " + la.err : ""}`);
+        if (la.total != null && la.got < la.total) await splitFetch(x, y, name, depth + 1);
+      }
+    }
     let ci = 0;
     for (const [a, b] of parts0) {
       if (stopFlag) break;
@@ -294,6 +314,7 @@ async function run() {
         if (la.err) log(`Səhifələmə dayandı: ${la.err}`);
         if (la.total != null && la.got < la.total) log(`DİQQƏT: portal ${la.total} sətir göstərir, yığıldı ${la.got} (${la.total - la.got} çatmır) — bəzi GB-lər düşməyə bilər`);
         else if (la.total != null) log(`Yoxlama: portal ${la.total}, yığıldı ${la.got} ✓`);
+        if (la.total != null && la.got < la.total && !stopFlag) await splitFetch(a, b, variants[vi], 0); // çatmayanlar: aralıq yarıya bölünüb təkrar oxunur
         log(`${f.from}–${f.to}${variants[vi] ? " [" + variants[vi] + "]" : ""}: cəmi ${seen.size}`);
         break;
       }
