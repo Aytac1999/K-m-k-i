@@ -292,6 +292,8 @@ async function run() {
         const la = await drive("listAll");
         for (const pg of la.pages) { take(pg.rows, pg.n); log(`${f.from}–${f.to}: səhifə ${pg.n}: ${pg.rows.length} sətir`); }
         if (la.err) log(`Səhifələmə dayandı: ${la.err}`);
+        if (la.total != null && la.got < la.total) log(`DİQQƏT: portal ${la.total} sətir göstərir, yığıldı ${la.got} (${la.total - la.got} çatmır) — bəzi GB-lər düşməyə bilər`);
+        else if (la.total != null) log(`Yoxlama: portal ${la.total}, yığıldı ${la.got} ✓`);
         log(`${f.from}–${f.to}${variants[vi] ? " [" + variants[vi] + "]" : ""}: cəmi ${seen.size}`);
         break;
       }

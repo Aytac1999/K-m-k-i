@@ -161,6 +161,7 @@
       return m ? m[1] : "ctl00$ContentPlaceHolder1$gvCCDMain";
     };
     const grid = gridOf(document);
+    const tm = /Sayı\s*:\s*(\d+)/.exec(document.body.innerText || ""); const total = tm ? parseInt(tm[1], 10) : null; // portalın göstərdiyi ümumi say
     const pages = [{ n: 1, rows: rows().map(plain) }];
     const seenSig = new Set([pages[0].rows.map((r) => r.gb).join()]);
     let root = document, err = "";
@@ -169,12 +170,15 @@
       const fd = new FormData(form);
       fd.set("__EVENTTARGET", grid); fd.set("__EVENTARGUMENT", "Page$" + n);
       const body = new URLSearchParams([...fd].filter(([, v]) => typeof v === "string"));
-      let html;
-      try {
-        const r = await fetch(new URL(form.getAttribute("action") || location.href, location.href).href, { method: "POST", body, credentials: "same-origin", headers: { Accept: "text/html,application/xhtml+xml" } });
-        if (!r.ok) { err = "cavab " + r.status; break; }
-        html = await r.text();
-      } catch (e) { err = e.message; break; }
+      let html = null;
+      for (let t = 0; t < 3 && html === null; t++) { // müvəqqəti xətalarda (500 və s.) 3 dəfəyə qədər təkrar
+        try {
+          const r = await fetch(new URL(form.getAttribute("action") || location.href, location.href).href, { method: "POST", body, credentials: "same-origin", headers: { Accept: "text/html,application/xhtml+xml" } });
+          if (!r.ok) { err = "cavab " + r.status; if (t < 2) await sleep(1500); continue; }
+          html = await r.text(); err = "";
+        } catch (e) { err = e.message; if (t < 2) await sleep(1500); }
+      }
+      if (html === null) break;
       root = new DOMParser().parseFromString(html, "text/html");
       const rs = rows(root).map(plain);
       const sig = rs.map((r) => r.gb).join();
@@ -182,7 +186,8 @@
       seenSig.add(sig);
       pages.push({ n, rows: rs });
     }
-    return { pages, err };
+    const got = pages.reduce((s, p) => s + p.rows.length, 0);
+    return { pages, err, total, got };
   }
   async function hasRow({ gb }) { return { has: rows().some((r) => r.gb === gb) }; }
   async function allRows() {
